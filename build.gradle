@@ -1,0 +1,70 @@
+plugins {
+    id 'fabric-loom' version '1.7.4'
+}
+version = project.property('modVersion')
+group = 'io.github.hirotasoshu'
+base { archivesName = 'seasons-shrubbery-compat' }
+repositories {
+    maven { url = 'https://api.modrinth.com/maven' }
+}
+dependencies {
+    minecraft 'com.mojang:minecraft:1.20.1'
+    mappings 'net.fabricmc:yarn:1.20.1+build.10:v2'
+    modImplementation 'net.fabricmc:fabric-loader:0.19.3'
+    modImplementation 'net.fabricmc.fabric-api:fabric-api:0.92.9+1.20.1'
+    modImplementation 'maven.modrinth:fabric-seasons:2.4.2-BETA+1.20'
+    modImplementation 'maven.modrinth:serene-shrubbery-fabric:XfSsaYti'
+}
+java { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17; withSourcesJar() }
+tasks.withType(JavaCompile).configureEach { options.release = 17; options.encoding = 'UTF-8' }
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') { expand 'version': project.version }
+}
+tasks.withType(AbstractArchiveTask).configureEach { preserveFileTimestamps = false; reproducibleFileOrder = true }
+sourceSets { integrationTest }
+loom {
+    mods {
+        'seasonsshrubberycompat' { sourceSet sourceSets.main }
+        'seasonsshrubberycompat_test' { sourceSet sourceSets.integrationTest }
+    }
+    runs {
+        integrationTest {
+            server()
+            name 'Shrubbery compatibility integration tests'
+            source sourceSets.integrationTest
+            runDir 'run-integration-test'
+            vmArg '-Xmx2G'
+        }
+    }
+}
+configurations {
+    integrationTestImplementation.extendsFrom implementation
+    integrationTestRuntimeOnly.extendsFrom runtimeOnly
+}
+dependencies { integrationTestImplementation sourceSets.main.output }
+
+sourceSets.integrationTest.compileClasspath += sourceSets.main.compileClasspath
+sourceSets.integrationTest.runtimeClasspath += sourceSets.main.runtimeClasspath
+
+tasks.named('runIntegrationTest') {
+    doFirst {
+        def dir = file('run-integration-test')
+        dir.mkdirs()
+        new File(dir, 'integration-result.txt').delete()
+        new File(dir, 'eula.txt').text = 'eula=true\n'
+        new File(dir, 'server.properties').text = 'online-mode=false\nserver-ip=127.0.0.1\nserver-port=25587\nlevel-name=test-world\nlevel-type=minecraft:flat\ngenerate-structures=false\nview-distance=2\nsimulation-distance=2\nmax-tick-time=180000\n'
+    }
+}
+tasks.register('integrationCheck') {
+    dependsOn 'runIntegrationTest'
+    doLast {
+        def result = file('run-integration-test/integration-result.txt')
+        if (!result.exists() || !result.text.startsWith('PASS ')) {
+            throw new GradleException('Integration tests failed: ' + (result.exists() ? result.text : 'no result'))
+        }
+        println result.text
+    }
+}
+
+jar { from('LICENSE') }
