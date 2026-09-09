@@ -116,6 +116,20 @@ public final class IntegrationTests implements ModInitializer {
             check(CropConfigs.getSeasonCropMultiplier(id,Season.WINTER)==.5f,"Winter profile: "+id);
         }
         check(flowers==42,"Expected all42 flowers, got "+flowers);
+        config(false,false,false,"SUMMER");
+        int acquired=0;
+        Random grassRandom=Random.create(123456L);
+        for(int i=0;i<80;i++) {
+            for(BlockPos p:BlockPos.iterate(POS.add(-3,0,-3),POS.add(3,0,3))) {
+                world.setBlockState(p.down(),Blocks.GRASS_BLOCK.getDefaultState());
+                world.setBlockState(p,Blocks.GRASS.getDefaultState());
+            }
+            ((Fertilizable)Blocks.GRASS_BLOCK).grow(world,grassRandom,POS.down(),Blocks.GRASS_BLOCK.getDefaultState());
+            for(BlockPos p:BlockPos.iterate(POS.add(-2,0,-2),POS.add(2,0,2))) {
+                if(Registries.BLOCK.getId(world.getBlockState(p).getBlock()).getNamespace().equals("serene_shrubbery")) acquired++;
+            }
+        }
+        check(acquired>0,"Bonemeal must acquire starter flowers in old plains chunks");
         Block[][] pairs={{ModBlocks.RED_PANSIES,ModBlocks.YELLOW_PANSIES},
             {ModBlocks.PEACH_FOXGLOVE,ModBlocks.WHITE_FOXGLOVE},
             {ModBlocks.RED_HYDRANGEA,ModBlocks.WHITE_HYDRANGEA}};
